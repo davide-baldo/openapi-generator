@@ -4,31 +4,26 @@ use std::fmt;
 use aws_sigv4;
 {{/withAWSV4Signature}}
 
-#[derive(Debug, Clone)]
-pub struct ResponseContent<T> {
-    pub status: reqwest::StatusCode,
-    pub content: String,
-    pub entity: Option<T>,
-}
-
 #[derive(Debug)]
-pub enum Error<T> {
+pub enum Error<T>
+  where T: fmt::Display {
     Reqwest(reqwest::Error),
     Serde(serde_json::Error),
     Io(std::io::Error),
-    ResponseError(ResponseContent<T>),
+    ResponseError(T),
     {{#withAWSV4Signature}}
     AWSV4SignatureError(aws_sigv4::http_request::Error),
     {{/withAWSV4Signature}}
 }
 
-impl <T> fmt::Display for Error<T> {
+impl <T> fmt::Display for Error<T>
+  where T: fmt::Display {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let (module, e) = match self {
             Error::Reqwest(e) => ("reqwest", e.to_string()),
             Error::Serde(e) => ("serde", e.to_string()),
             Error::Io(e) => ("IO", e.to_string()),
-            Error::ResponseError(e) => ("response", format!("status code {}", e.status)),
+            Error::ResponseError(e) => ("response", format!("{}", e)),
 	    {{#withAWSV4Signature}}
             Error::AWSV4SignatureError(e) => ("aws v4 signature", e.to_string()),
 	    {{/withAWSV4Signature}}
@@ -37,7 +32,8 @@ impl <T> fmt::Display for Error<T> {
     }
 }
 
-impl <T: fmt::Debug> error::Error for Error<T> {
+impl <T: fmt::Debug> error::Error for Error<T>
+  where T: fmt::Display {
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         Some(match self {
             Error::Reqwest(e) => e,
@@ -51,25 +47,29 @@ impl <T: fmt::Debug> error::Error for Error<T> {
     }
 }
 
-impl <T> From<reqwest::Error> for Error<T> {
+impl <T> From<reqwest::Error> for Error<T>
+  where T: fmt::Display {
     fn from(e: reqwest::Error) -> Self {
         Error::Reqwest(e)
     }
 }
 
-impl <T> From<serde_json::Error> for Error<T> {
+impl <T> From<serde_json::Error> for Error<T>
+  where T: fmt::Display {
     fn from(e: serde_json::Error) -> Self {
         Error::Serde(e)
     }
 }
 
-impl <T> From<std::io::Error> for Error<T> {
+impl <T> From<std::io::Error> for Error<T>
+  where T: fmt::Display {
     fn from(e: std::io::Error) -> Self {
         Error::Io(e)
     }
 }
 
-pub fn urlencode<T: AsRef<str>>(s: T) -> String {
+pub fn urlencode<T: AsRef<str>>(s: T) -> String
+  where T: fmt::Display {
     ::url::form_urlencoded::byte_serialize(s.as_ref().as_bytes()).collect()
 }
 
